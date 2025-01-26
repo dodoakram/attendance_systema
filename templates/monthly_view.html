@@ -1,4 +1,6 @@
 
+{% extends "base.html" %}
+
 {% block content %}
 <div class="card shadow">
     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
@@ -7,8 +9,7 @@
             <button onclick="window.print()" class="btn btn-light">
                 <i class="bi bi-printer"></i> طباعة
             </button>
-        </div>{% extends "base.html" %}
-
+        </div>
     </div>
     <div class="card-body">
         <div class="table-responsive">
@@ -108,3 +109,4 @@
 }
 </style>
 {% endblock %}
+
