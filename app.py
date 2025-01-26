@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
-from datetime import date
+from datetime import date, datetime, timedelta
 import os
+import calendar
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///attendance.db').replace("postgres://", "postgresql://", 1)
@@ -111,6 +112,47 @@ def delete_student(id):
     db.session.commit()
     flash('Student deleted successfully', 'success')
     return redirect(url_for('manage_students'))
+
+@app.route('/monthly_view')
+def monthly_view():
+    # Get the current year and month
+    today = date.today()
+    year = today.year
+    month = today.month
+    
+    # Get all days in the month
+    num_days = calendar.monthrange(year, month)[1]
+    days = [date(year, month, day) for day in range(1, num_days + 1)]
+    
+    # Get all students
+    students = Student.query.all()
+    
+    # Get all absences for this month
+    absences = Absence.query.filter(
+        db.extract('year', Absence.date) == year,
+        db.extract('month', Absence.date) == month
+    ).all()
+    
+    # Create absence dictionary for quick lookup
+    absence_dict = {}
+    for absence in absences:
+        key = (absence.student_id, absence.date)
+        absence_dict[key] = True
+    
+    # Get all holidays
+    holidays = Holiday.query.filter(
+        db.extract('year', Holiday.date) == year,
+        db.extract('month', Holiday.date) == month
+    ).all()
+    holiday_dates = {h.date for h in holidays}
+    
+    return render_template('monthly_view.html',
+                         students=students,
+                         days=days,
+                         absences=absence_dict,
+                         holidays=holiday_dates,
+                         month_name=calendar.month_name[month],
+                         year=year)
 
 @app.cli.command('init')
 def init_db():
