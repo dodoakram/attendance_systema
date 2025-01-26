@@ -5,46 +5,29 @@ import os
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///attendance.db').replace("postgres://", "postgresql://", 1)
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-123')
 db = SQLAlchemy(app)
 
-# ---- النماذج ----
+# ---- نماذج قاعدة البيانات ----
 class Student(db.Model):
-    __tablename__ = 'students'  # تغيير اسم الجدول
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), unique=True, nullable=False)
-    absences = db.relationship('Absence', backref='student', lazy=True)
+    absences = db.relationship(
+        'Absence', 
+        backref='student', 
+        lazy=True,
+        cascade="all, delete-orphan"  # التعديل المهم
+    )
 
 class Absence(db.Model):
-    __tablename__ = 'absences'  # تغيير اسم الجدول
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.Date, nullable=False)
-    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
 
 class Holiday(db.Model):
-    __tablename__ = 'holidays'  # تغيير اسم الجدول
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.Date, unique=True, nullable=False)
     description = db.Column(db.String(100))
-
-# إنشاء جداول قاعدة البيانات
-def create_tables():
-    with app.app_context():
-        db.create_all()
-        
-        # إضافة بيانات أولية إذا كانت قاعدة البيانات فارغة
-        if not Student.query.first():
-            default_students = [
-                Student(name='أحمد'),
-                Student(name='محمد'),
-                Student(name='علي')
-            ]
-            db.session.add_all(default_students)
-            db.session.commit()
-
-# استدعاء إنشاء الجداول
-create_tables()
 
 # ---- الروابط ----
 @app.route('/')
@@ -86,7 +69,7 @@ def manage_holidays():
     holidays = Holiday.query.order_by(Holiday.date.desc()).all()
     return render_template('holidays.html', holidays=holidays)
 
-@app.route('/students', methods=['GET', 'POST'])
+@app.route('/students')
 def manage_students():
     students = Student.query.all()
     return render_template('students.html', students=students)
@@ -109,7 +92,7 @@ def delete_student(id):
     student = Student.query.get_or_404(id)
     db.session.delete(student)
     db.session.commit()
-    flash('تم حذف الطالب بنجاح', 'success')
+    flash('تم حذف الطالب وجميع غياباته بنجاح', 'success')
     return redirect(url_for('manage_students'))
 
 @app.cli.command('init')
