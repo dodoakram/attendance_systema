@@ -14,7 +14,7 @@ class Student(db.Model):
     __tablename__ = 'students'  # Change table name
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), unique=True, nullable=False)
-    absences = db.relationship('Absence', backref='student', lazy=True)
+    absences = db.relationship('Absence', backref='student', lazy=True, cascade='all, delete-orphan')
 
 class Absence(db.Model):
     __tablename__ = 'absences'  # Change table name
@@ -122,6 +122,16 @@ def init_db():
             db.session.add(Student(name=name))
     db.session.commit()
     print('Initial data initialized successfully!')
+
+@app.cli.command('reset-db')
+def reset_db():
+    """Reset the database"""
+    with app.app_context():
+        # Drop all tables
+        db.drop_all()
+        # Create all tables
+        db.create_all()
+        print('Database has been reset successfully!')
 
 if __name__ == '__main__':
     app.run(debug=True)
