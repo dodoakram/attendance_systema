@@ -1,27 +1,41 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-8">
-        <h2 class="mb-4">تسجيل الغياب اليومي</h2>
+<div class="row mb-4">
+    <div class="col-md-12">
         <div class="card shadow">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h3 class="mb-0">تسجيل الغياب اليومي</h3>
+                <a href="{{ url_for('monthly_view') }}" class="btn btn-light">
+                    <i class="bi bi-calendar3"></i> عرض جدول الشهر
+                </a>
+            </div>
             <div class="card-body">
-                <form method="POST" action="/add_absence">
-                    <div class="list-group">
-                        {% for student in students %}
-                        <div class="list-group-item d-flex justify-content-between align-items-center">
-                            {{ student.name }}
-                            <button 
-                                name="student_id" 
-                                value="{{ student.id }}"
-                                class="btn btn-sm btn-danger"
-                            >
-                                تسجيل غياب
-                            </button>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </form>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>اسم الطالب</th>
+                                <th class="text-center">تسجيل الغياب</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for student in students %}
+                            <tr>
+                                <td>{{ student.name }}</td>
+                                <td class="text-center">
+                                    <form action="{{ url_for('add_absence') }}" method="post" style="display: inline;">
+                                        <input type="hidden" name="student_id" value="{{ student.id }}">
+                                        <button type="submit" class="btn btn-danger btn-sm">
+                                            <i class="bi bi-person-x"></i> تسجيل غياب
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
