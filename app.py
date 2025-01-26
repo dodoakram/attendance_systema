@@ -5,24 +5,46 @@ import os
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///attendance.db').replace("postgres://", "postgresql://", 1)
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-123')
 db = SQLAlchemy(app)
 
 # ---- النماذج ----
 class Student(db.Model):
+    __tablename__ = 'students'  # تغيير اسم الجدول
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), unique=True, nullable=False)
     absences = db.relationship('Absence', backref='student', lazy=True)
 
 class Absence(db.Model):
+    __tablename__ = 'absences'  # تغيير اسم الجدول
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.Date, nullable=False)
-    student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
 
 class Holiday(db.Model):
+    __tablename__ = 'holidays'  # تغيير اسم الجدول
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.Date, unique=True, nullable=False)
     description = db.Column(db.String(100))
+
+# إنشاء جداول قاعدة البيانات
+def create_tables():
+    with app.app_context():
+        db.create_all()
+        
+        # إضافة بيانات أولية إذا كانت قاعدة البيانات فارغة
+        if not Student.query.first():
+            default_students = [
+                Student(name='أحمد'),
+                Student(name='محمد'),
+                Student(name='علي')
+            ]
+            db.session.add_all(default_students)
+            db.session.commit()
+
+# استدعاء إنشاء الجداول
+create_tables()
 
 # ---- الروابط ----
 @app.route('/')
