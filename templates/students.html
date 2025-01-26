@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4 text-center">إدارة الطلاب</h2>
+    
+    <!-- نموذج إضافة طالب جديد -->
+    <div class="card shadow mb-5">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">إضافة طالب جديد</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('add_student') }}">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <input type="text" 
+                               class="form-control"
+                               name="student_name"
+                               placeholder="اسم الطالب الجديد"
+                               required>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" 
+                                class="btn btn-success w-100">
+                            <i class="bi bi-person-plus"></i> إضافة
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- قائمة الطلاب -->
+    <div class="card shadow">
+        <div class="card-header bg-info text-white">
+            <h4 class="mb-0">القائمة الحالية</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>اسم الطالب</th>
+                            <th>عدد الغيابات</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>{{ student.name }}</td>
+                            <td>{{ student.absences|length }}</td>
+                            <td>
+                                <form method="POST" 
+                                      action="{{ url_for('delete_student', id=student.id) }}"
+                                      class="d-inline">
+                                    <button type="submit" 
+                                            class="btn btn-danger btn-sm"
+                                            onclick="return confirm('هل أنت متأكد من حذف الطالب؟')">
+                                        <i class="bi bi-trash"></i> حذف
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4 text-center">
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> العودة للرئيسية
+        </a>
+    </div>
+</div>
+{% endblock %}
