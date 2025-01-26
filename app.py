@@ -146,11 +146,30 @@ def monthly_view():
     ).all()
     holiday_dates = {h.date for h in holidays}
     
+    # Add weekends (Friday and Saturday) to holidays
+    for day in days:
+        # In Python, weekday() returns 0-6 where 0 is Monday and 6 is Sunday
+        # 4 is Friday, 5 is Saturday
+        if day.weekday() in [4, 5]:  # Friday or Saturday
+            holiday_dates.add(day)
+    
+    # Get weekday names in Arabic
+    weekday_names = {
+        0: 'الإثنين',
+        1: 'الثلاثاء',
+        2: 'الأربعاء',
+        3: 'الخميس',
+        4: 'الجمعة',
+        5: 'السبت',
+        6: 'الأحد'
+    }
+    
     return render_template('monthly_view.html',
                          students=students,
                          days=days,
                          absences=absence_dict,
                          holidays=holiday_dates,
+                         weekday_names=weekday_names,
                          month_name=calendar.month_name[month],
                          year=year)
 
