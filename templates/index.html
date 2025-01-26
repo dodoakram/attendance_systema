@@ -16,6 +16,7 @@
                         <thead>
                             <tr>
                                 <th>اسم الطالب</th>
+                                <th>التاريخ</th>
                                 <th class="text-center">تسجيل الغياب</th>
                             </tr>
                         </thead>
@@ -23,11 +24,21 @@
                             {% for student in students %}
                             <tr>
                                 <td>{{ student.name }}</td>
-                                <td class="text-center">
-                                    <form action="{{ url_for('add_absence') }}" method="post" style="display: inline;">
+                                <td>
+                                    <form action="{{ url_for('add_absence') }}" method="post" class="d-flex gap-2 align-items-center">
                                         <input type="hidden" name="student_id" value="{{ student.id }}">
+                                        <input type="date" name="absence_date" class="form-control" style="max-width: 200px;" required>
                                         <button type="submit" class="btn btn-danger btn-sm">
                                             <i class="bi bi-person-x"></i> تسجيل غياب
+                                        </button>
+                                    </form>
+                                </td>
+                                <td class="text-center">
+                                    <!-- Quick button for today's absence -->
+                                    <form action="{{ url_for('add_absence') }}" method="post" style="display: inline;">
+                                        <input type="hidden" name="student_id" value="{{ student.id }}">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                                            <i class="bi bi-person-x"></i> غياب اليوم
                                         </button>
                                     </form>
                                 </td>
