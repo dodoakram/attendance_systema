@@ -57,17 +57,41 @@ def index():
 @app.route('/add_absence', methods=['POST'])
 def add_absence():
     student_id = request.form.get('student_id')
+    absence_date = request.form.get('absence_date')
+    
     student = Student.query.get(student_id)
     
     if student:
-        today = date.today()
-        if not Holiday.query.filter_by(date=today).first():
-            absence = Absence(student_id=student.id, date=today)
-            db.session.add(absence)
-            db.session.commit()
-            flash('Absence recorded successfully', 'success')
-        else:
-            flash('Cannot record absence on a holiday', 'warning')
+        # Convert string date to date object
+        try:
+            if absence_date:
+                absence_date = date.fromisoformat(absence_date)
+            else:
+                absence_date = date.today()
+            
+            # Check if it's not a holiday
+            holiday = Holiday.query.filter_by(date=absence_date).first()
+            # Check if it's not a weekend (Friday=4 or Saturday=5)
+            is_weekend = absence_date.weekday() in [4, 5]
+            
+            if not holiday and not is_weekend:
+                # Check if absence already exists
+                existing_absence = Absence.query.filter_by(
+                    student_id=student.id,
+                    date=absence_date
+                ).first()
+                
+                if not existing_absence:
+                    absence = Absence(student_id=student.id, date=absence_date)
+                    db.session.add(absence)
+                    db.session.commit()
+                    flash('تم تسجيل الغياب بنجاح', 'success')
+                else:
+                    flash('الغياب مسجل مسبقاً لهذا اليوم', 'warning')
+            else:
+                flash('لا يمكن تسجيل الغياب في يوم عطلة', 'warning')
+        except ValueError:
+            flash('تاريخ غير صحيح', 'danger')
     return redirect(url_for('index'))
 
 @app.route('/holidays', methods=['GET', 'POST'])
