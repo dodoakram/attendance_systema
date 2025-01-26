@@ -33,6 +33,11 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {{ 'active' if request.path == '/monthly_view' }}" href="{{ url_for('monthly_view') }}">
+                            <i class="bi bi-calendar3"></i> جدول الشهر
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {{ 'active' if request.path == '/students' }}" href="{{ url_for('manage_students') }}">
                             <i class="bi bi-people"></i> إدارة الطلاب
                         </a>
