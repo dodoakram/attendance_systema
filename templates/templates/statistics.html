@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow mb-4">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">الإحصائيات العامة</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card border-primary mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title">معلومات عامة</h5>
+                                <p class="mb-2">عدد التلاميذ: <strong>{{ total_students }}</strong></p>
+                                <p class="mb-2">أيام الدراسة: <strong>{{ total_study_days }}</strong></p>
+                                <p class="mb-2">الحضور الكلي (نقاط): <strong>{{ total_possible_attendance }}</strong></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-info mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title">إحصائيات الحضور</h5>
+                                <p class="mb-2">إجمالي الغيابات: <strong>{{ total_absence_points }}</strong></p>
+                                <p class="mb-2">الحضور الفعلي: <strong>{{ actual_attendance }}</strong></p>
+                                <div class="progress mb-2" style="height: 20px;">
+                                    <div class="progress-bar bg-success" 
+                                         role="progressbar" 
+                                         style="width: {{ attendance_percent }}%">
+                                        {{ "%.2f"|format(attendance_percent) }}% حضور
+                                    </div>
+                                    <div class="progress-bar bg-danger" 
+                                         role="progressbar" 
+                                         style="width: {{ absence_percent }}%">
+                                        {{ "%.2f"|format(absence_percent) }}% غياب
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h3 class="mb-0">إحصائيات الطلاب</h3>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>اسم التلميذ</th>
+                                <th class="text-center">نقاط الغياب</th>
+                                <th class="text-center">نسبة الحضور</th>
+                                <th class="text-center">الحالة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for student in student_stats %}
+                            <tr>
+                                <td>{{ student.name }}</td>
+                                <td class="text-center">{{ student.absences }}</td>
+                                <td class="text-center">
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar {% if student.attendance_percent < 75 %}bg-danger{% elif student.attendance_percent < 90 %}bg-warning{% else %}bg-success{% endif %}" 
+                                             role="progressbar" 
+                                             style="width: {{ student.attendance_percent }}%">
+                                            {{ "%.2f"|format(student.attendance_percent) }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    {% if student.attendance_percent < 75 %}
+                                        <span class="badge bg-danger">ضعيف</span>
+                                    {% elif student.attendance_percent < 90 %}
+                                        <span class="badge bg-warning">متوسط</span>
+                                    {% else %}
+                                        <span class="badge bg-success">جيد</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
