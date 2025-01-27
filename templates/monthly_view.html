@@ -34,22 +34,32 @@
                         {% for day in days %}
                         <td class="text-center {% if day in holidays %}table-warning{% endif %}">
                             {% if (student.id, day) in absences and day not in holidays %}
-                            <span class="text-danger">غ</span>
+                                {% set absence = absences[(student.id, day)] %}
+                                {% if absence.absence_type == 'full' %}
+                                    <span class="text-danger"><i class="bi bi-x-circle-fill"></i></span>
+                                {% else %}
+                                    <span class="text-warning"><i class="bi bi-exclamation-triangle-fill"></i></span>
+                                {% endif %}
                             {% endif %}
                         </td>
                         {% endfor %}
                         <td class="text-center bg-light">
-                            {% set absence_count = namespace(value=0) %}
+                            {% set absence_count = namespace(full=0, half=0) %}
                             {% for day in days %}
                                 {% if (student.id, day) in absences and day not in holidays %}
-                                    {% set absence_count.value = absence_count.value + 1 %}
+                                    {% set absence = absences[(student.id, day)] %}
+                                    {% if absence.absence_type == 'full' %}
+                                        {% set absence_count.full = absence_count.full + 1 %}
+                                    {% else %}
+                                        {% set absence_count.half = absence_count.half + 0.5 %}
+                                    {% endif %}
                                 {% endif %}
                             {% endfor %}
-                            <strong>{{ absence_count.value }}</strong>
+                            <strong>{{ absence_count.full + absence_count.half }}</strong>
                         </td>
                         <td class="text-center">
-                            {% if absence_count.value >= 5 %}
-                            <span class="badge bg-danger">إنذار</span>
+                            {% if (absence_count.full + absence_count.half) >= 5 %}
+                                <span class="badge bg-danger">إنذار</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -83,8 +93,12 @@
                     <span>يوم عطلة</span>
                 </div>
                 <div class="d-flex align-items-center">
-                    <div class="text-danger me-2">غ</div>
-                    <span>غائب</span>
+                    <span class="text-danger me-2"><i class="bi bi-x-circle-fill"></i></span>
+                    <span>غياب كامل</span>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="text-warning me-2"><i class="bi bi-exclamation-triangle-fill"></i></span>
+                    <span>نصف يوم</span>
                 </div>
             </div>
         </div>
@@ -103,10 +117,6 @@
         background-color: #f8f9fa !important;
         color: #000 !important;
     }
-    .table {
-        width: 100% !important;
-    }
 }
 </style>
 {% endblock %}
-

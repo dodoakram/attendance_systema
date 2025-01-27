@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="نظام إدارة الحضور للطلاب">
+    <meta http-equiv="Content-Language" content="ar">
     <title>نظام إدارة الحضور</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -47,6 +49,11 @@
                             <i class="bi bi-calendar-event"></i> العطل الرسمية
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ 'active' if request.path == '/statistics' }}" href="{{ url_for('statistics') }}">
+                            <i class="bi bi-graph-up"></i> الإحصائيات
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -69,18 +76,20 @@
 
     <footer class="bg-dark text-white py-3 mt-5">
         <div class="container text-center">
-            <p class="mb-0">تم التطوير بواسطة نظام الحضور الذكي © 2024</p>
+            <p class="mb-0">تم التطوير بواسطة نظام الحضور الذكي 2024</p>
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
     <script>
         // تأكيد قبل الحذف
-        document.querySelectorAll('.confirm-delete').forEach(button => {
-            button.addEventListener('click', (e) => {
-                if (!confirm('هل أنت متأكد من هذا الإجراء؟')) {
-                    e.preventDefault();
-                }
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.confirm-delete').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    if (!confirm('هل أنت متأكد من هذا الإجراء؟')) {
+                        e.preventDefault();
+                    }
+                });
             });
         });
     </script>

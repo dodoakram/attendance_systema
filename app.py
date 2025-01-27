@@ -21,6 +21,7 @@ class Absence(db.Model):
     __tablename__ = 'absences'  # Change table name
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.Date, nullable=False)
+    absence_type = db.Column(db.String(10), nullable=False, default='full')  # 'full' أو 'half'
     student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
 
 class Holiday(db.Model):
@@ -28,7 +29,7 @@ class Holiday(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.Date, unique=True, nullable=False)
     description = db.Column(db.String(100))
-
+  
 # Create database tables
 def create_tables():
     with app.app_context():
@@ -52,37 +53,43 @@ create_tables()
 def index():
     students = Student.query.all()
     holidays = Holiday.query.all()
-    return render_template('index.html', students=students, holidays=holidays)
+    today = date.today()
+    return render_template('index.html', students=students, holidays=holidays, today=today)
 
 @app.route('/add_absence', methods=['POST'])
 def add_absence():
     student_id = request.form.get('student_id')
     absence_date = request.form.get('absence_date')
-    
+    absence_type = request.form.get('absence_type', 'full')
+
+    if absence_type not in ['full', 'half']:
+        flash('نوع الغياب غير صحيح', 'danger')
+        return redirect(url_for('index'))
+
     student = Student.query.get(student_id)
     
     if student:
-        # Convert string date to date object
         try:
             if absence_date:
                 absence_date = date.fromisoformat(absence_date)
             else:
                 absence_date = date.today()
             
-            # Check if it's not a holiday
             holiday = Holiday.query.filter_by(date=absence_date).first()
-            # Check if it's not a weekend (Friday=4 or Saturday=5)
             is_weekend = absence_date.weekday() in [4, 5]
             
             if not holiday and not is_weekend:
-                # Check if absence already exists
                 existing_absence = Absence.query.filter_by(
                     student_id=student.id,
                     date=absence_date
                 ).first()
                 
                 if not existing_absence:
-                    absence = Absence(student_id=student.id, date=absence_date)
+                    absence = Absence(
+                        student_id=student.id,
+                        date=absence_date,
+                        absence_type=absence_type
+                    )
                     db.session.add(absence)
                     db.session.commit()
                     flash('تم تسجيل الغياب بنجاح', 'success')
@@ -94,6 +101,7 @@ def add_absence():
             flash('تاريخ غير صحيح', 'danger')
     return redirect(url_for('index'))
 
+
 @app.route('/holidays', methods=['GET', 'POST'])
 def manage_holidays():
     if request.method == 'POST':
@@ -104,9 +112,9 @@ def manage_holidays():
             holiday = Holiday(date=holiday_date, description=description)
             db.session.add(holiday)
             db.session.commit()
-            flash('Holiday added successfully', 'success')
+            flash('تم إضافة العطلة بنجاح', 'success')
         else:
-            flash('Date already recorded', 'danger')
+            flash('هذا التاريخ مسجل مسبقاً', 'danger')
     
     holidays = Holiday.query.order_by(Holiday.date.desc()).all()
     return render_template('holidays.html', holidays=holidays)
@@ -131,12 +139,112 @@ def add_student():
 
 @app.route('/delete_student/<int:id>', methods=['POST'])
 def delete_student(id):
-    student = Student.query.get_or_404(id)
-    db.session.delete(student)
-    db.session.commit()
-    flash('Student deleted successfully', 'success')
+    try:
+        student = Student.query.get_or_404(id)
+        name = student.name
+        db.session.delete(student)
+        db.session.commit()
+        flash(f'تم حذف الطالب {name} بنجاح', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('حدث خطأ أثناء حذف الطالب', 'danger')
     return redirect(url_for('manage_students'))
 
+@app.route('/delete_holiday/<int:id>', methods=['POST'])
+def delete_holiday(id):
+    try:
+        holiday = Holiday.query.get_or_404(id)
+        date = holiday.date
+        db.session.delete(holiday)
+        db.session.commit()
+        flash(f'تم حذف العطلة بتاريخ {date.strftime("%Y-%m-%d")} بنجاح', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('حدث خطأ أثناء حذف العطلة', 'danger')
+    return redirect(url_for('manage_holidays'))
+
+@app.route('/statistics')
+def statistics():
+    # تواريخ بداية ونهاية الفصل الدراسي (ديناميكية)
+    today = date.today()
+    if today.month >= 9:  # إذا كنا في الفصل الأول
+        start_date = date(today.year, 9, 1)
+        end_date = date(today.year + 1, 1, 31)
+    else:  # إذا كنا في الفصل الثاني
+        start_date = date(today.year, 2, 1)
+        end_date = date(today.year, 6, 30)
+    
+    # حساب أيام الدراسة (بدون عطلات نهاية الأسبوع والعطل الرسمية)
+    all_days = []
+    current_day = start_date
+    while current_day <= end_date:
+        all_days.append(current_day)
+        current_day += timedelta(days=1)
+    
+    # استبعاد العطلات الرسمية
+    holidays = [h.date for h in Holiday.query.all()]
+    
+    # استبعاد الجمعة (4) والسبت (5)
+    study_days = [day for day in all_days 
+                  if day.weekday() not in [4, 5] # الجمعة والسبت
+                  and day not in holidays]
+    
+    total_study_days = len(study_days)
+    
+    # عدد التلاميذ
+    total_students = Student.query.count()
+    
+    # الحضور الكلي (يوم كامل = 2 نقطة، نصف يوم = 1 نقطة)
+    total_possible_attendance = total_students * total_study_days * 2
+    
+    # حساب الغيابات (يوم كامل = 2 نقطة، نصف يوم = 1 نقطة)
+    all_absences = Absence.query.all()
+    total_absence_points = sum(
+        2 if ab.absence_type == 'full' else 1 
+        for ab in all_absences
+        if ab.date in study_days # تأكد أن الغياب في أيام الدراسة
+    )
+    
+    # الحضور الفعلي
+    actual_attendance = total_possible_attendance - total_absence_points
+    
+    # النسب المئوية
+    if total_possible_attendance > 0:
+        attendance_percent = (actual_attendance / total_possible_attendance) * 100
+        absence_percent = (total_absence_points / total_possible_attendance) * 100
+    else:
+        attendance_percent = 0
+        absence_percent = 0
+    
+    # إحصائيات إضافية
+    students = Student.query.all()
+    student_stats = []
+    for student in students:
+        student_absences = Absence.query.filter_by(student_id=student.id).all()
+        student_absence_points = sum(
+            2 if ab.absence_type == 'full' else 1 
+            for ab in student_absences
+            if ab.date in study_days
+        )
+        student_possible = total_study_days * 2
+        student_actual = student_possible - student_absence_points
+        student_stats.append({
+            'name': student.name,
+            'absences': student_absence_points,
+            'attendance_percent': (student_actual / student_possible * 100) if student_possible > 0 else 0
+        })
+    
+    return render_template(
+        'statistics.html',
+        total_students=total_students,
+        total_study_days=total_study_days,
+        total_possible_attendance=total_possible_attendance,
+        total_absence_points=total_absence_points,
+        actual_attendance=actual_attendance,
+        attendance_percent=attendance_percent,
+        absence_percent=absence_percent,
+        student_stats=student_stats
+    )
 @app.route('/monthly_view')
 def monthly_view():
     # Get the current year and month
@@ -196,27 +304,6 @@ def monthly_view():
                          weekday_names=weekday_names,
                          month_name=calendar.month_name[month],
                          year=year)
-
-@app.cli.command('init')
-def init_db():
-    """Initialize initial data"""
-    db.create_all()
-    initial_students = ['Ahmed', 'Mohammed', 'Fatima', 'Ali', 'Maryam']
-    for name in initial_students:
-        if not Student.query.filter_by(name=name).first():
-            db.session.add(Student(name=name))
-    db.session.commit()
-    print('Initial data initialized successfully!')
-
-@app.cli.command('reset-db')
-def reset_db():
-    """Reset the database"""
-    with app.app_context():
-        # Drop all tables
-        db.drop_all()
-        # Create all tables
-        db.create_all()
-        print('Database has been reset successfully!')
 
 if __name__ == '__main__':
     app.run(debug=True)
