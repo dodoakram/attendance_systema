@@ -10,6 +10,7 @@
             </h4>
         </div>
         <div class="card-body">
+            {% if students %}
             <div class="table-responsive">
                 <table class="table table-bordered text-center">
                     <thead class="table-light">
@@ -30,9 +31,15 @@
                             {% for day in days %}
                             <td class="{% if day in holidays %}table-danger{% endif %}">
                                 {% if (student.id, day) in absences %}
-                                <i class="bi bi-x-circle text-danger"></i>
+                                    {% if absences[(student.id, day)] == 'full' %}
+                                    <i class="bi bi-x-circle text-danger" title="غياب كامل"></i>
+                                    {% else %}
+                                    <i class="bi bi-dash-circle text-warning" title="نصف يوم"></i>
+                                    {% endif %}
                                 {% else %}
-                                <i class="bi bi-check-circle text-success"></i>
+                                    {% if day not in holidays %}
+                                    <i class="bi bi-check-circle text-success" title="حاضر"></i>
+                                    {% endif %}
                                 {% endif %}
                             </td>
                             {% endfor %}
@@ -41,6 +48,16 @@
                     </tbody>
                 </table>
             </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-people-fill fs-1"></i>
+                <p class="mt-3">لا يوجد طلاب مسجلين حالياً</p>
+                <a href="{{ url_for('manage_students') }}" class="btn btn-primary">
+                    <i class="bi bi-person-plus"></i>
+                    إضافة طلاب
+                </a>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
