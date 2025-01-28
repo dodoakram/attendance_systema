@@ -17,10 +17,6 @@ def create_app():
     # تهيئة الإضافات مع التطبيق
     db.init_app(app)
 
-    with app.app_context():
-        # إنشاء قاعدة البيانات إذا لم تكن موجودة
-        db.create_all()
-
     # إضافة بيانات أولية
     def add_initial_data():
         if not Student.query.first():
