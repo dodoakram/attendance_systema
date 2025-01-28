@@ -205,77 +205,129 @@ def create_app():
     @app.route('/statistics')
     def statistics():
         today = date.today()
+        current_year = today.year
+        current_month = today.month
         
-        # تحديد بداية ونهاية الفصل الدراسي
-        if today.month >= 9:  # الفصل الأول
-            start_date = date(today.year, 9, 1)
-            end_date = date(today.year + 1, 1, 31)
-        else:  # الفصل الثاني
-            start_date = date(today.year, 2, 1)
-            end_date = date(today.year, 6, 30)
+        # تحديد بداية ونهاية الشهر الحالي
+        _, last_day = calendar.monthrange(current_year, current_month)
+        month_start = date(current_year, current_month, 1)
+        month_end = date(current_year, current_month, last_day)
         
-        # حساب أيام الدراسة
-        all_days = [start_date + timedelta(days=i) for i in range((end_date - start_date).days + 1)]
-        holidays = [h.date for h in Holiday.query.all()]
-        study_days = [day for day in all_days if day.weekday() not in [4, 5] and day not in holidays]
-        
-        # حساب الإحصائيات
-        total_students = Student.query.count()
-        total_study_days = len(study_days)
-        total_possible_attendance = total_students * total_study_days  # كل يوم = نقطة واحدة
-        
-        # حساب الغيابات في الفترة الدراسية فقط
-        all_absences = Absence.query.filter(
-            Absence.date.between(start_date, end_date)
+        # الحصول على قائمة العطل للشهر الحالي
+        month_holidays = Holiday.query.filter(
+            Holiday.date.between(month_start, month_end)
         ).all()
         
-        # حساب نقاط الغياب (يوم كامل = نقطة، نصف يوم = 0.5 نقطة)
+        # طباعة العطل للتحقق
+        print("Holidays this month:")
+        for holiday in month_holidays:
+            print(f"Holiday: {holiday.date}, Description: {holiday.description}")
+        
+        holidays = set(h.date for h in month_holidays)
+        
+        # حساب أيام الدراسة في الشهر الحالي
+        study_days = []
+        current_date = month_start
+        
+        # نحسب حتى نهاية الشهر (وليس فقط حتى اليوم الحالي)
+        while current_date <= month_end:
+            weekday = current_date.weekday()
+            # 5 = السبت، 4 = الجمعة
+            is_weekend = weekday in [4, 5]
+            is_holiday = current_date in holidays
+            
+            if not is_weekend and not is_holiday:
+                study_days.append(current_date)
+            
+            # طباعة معلومات التصحيح
+            print(f"Date: {current_date.strftime('%Y-%m-%d')}, "
+                  f"Day: {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][weekday]}, "
+                  f"Is Weekend: {is_weekend}, Is Holiday: {is_holiday}")
+            
+            current_date += timedelta(days=1)
+        
+        # طباعة مجموع الأيام
+        print(f"\nTotal study days found: {len(study_days)}")
+        print("Study days:", [day.strftime('%Y-%m-%d') for day in study_days])
+        
+        # إحصائيات عامة
+        total_students = Student.query.count()
+        total_study_days = len(study_days)
+        
+        if total_study_days == 0 or total_students == 0:
+            return render_template('statistics.html',
+                                month_name=calendar.month_name[current_month],
+                                year=current_year,
+                                total_students=0,
+                                total_study_days=0,
+                                total_possible_attendance=0,
+                                total_absence_points=0,
+                                actual_attendance=0,
+                                attendance_percent=0,
+                                absence_percent=0,
+                                student_stats=[])
+        
+        # حساب إجمالي نقاط الحضور الممكنة
+        total_possible_attendance = total_students * total_study_days
+        
+        # حساب الغيابات لجميع الطلاب في الشهر الحالي
+        absences = Absence.query.filter(
+            Absence.date.between(month_start, month_end)
+        ).all()
+        
+        # تنظيم الغيابات في قاموس للوصول السريع
+        absence_dict = {}
+        for absence in absences:
+            if absence.date in study_days:  # نتجاهل الغيابات في أيام العطل
+                key = (absence.student_id, absence.date)
+                absence_dict[key] = absence.absence_type
+        
+        # حساب إجمالي نقاط الغياب
         total_absence_points = sum(
-            1 if ab.absence_type == 'full' else 0.5 
-            for ab in all_absences 
-            if ab.date in study_days
+            1.0 if absence_type == 'full' else 0.5
+            for absence_type in absence_dict.values()
         )
         
+        # حساب نقاط الحضور الفعلية والنسب المئوية
         actual_attendance = total_possible_attendance - total_absence_points
-        attendance_percent = (actual_attendance / total_possible_attendance * 100) if total_possible_attendance > 0 else 0
-        absence_percent = 100 - attendance_percent
+        attendance_percent = (actual_attendance / total_possible_attendance) * 100 if total_possible_attendance > 0 else 0
+        absence_percent = (total_absence_points / total_possible_attendance) * 100 if total_possible_attendance > 0 else 0
         
         # إحصائيات الطلاب
         student_stats = []
-        for student in Student.query.all():
-            # حساب غيابات الطالب في الفترة الدراسية فقط
-            student_absences = Absence.query.filter(
-                Absence.student_id == student.id,
-                Absence.date.between(start_date, end_date)
-            ).all()
-            
+        for student in Student.query.order_by(Student.name).all():
             # حساب نقاط الغياب للطالب
-            student_absence_points = sum(
-                1 if ab.absence_type == 'full' else 0.5 
-                for ab in student_absences 
-                if ab.date in study_days
+            student_absences = sum(
+                1.0 if absence_dict.get((student.id, day)) == 'full' else
+                0.5 if absence_dict.get((student.id, day)) == 'half' else
+                0
+                for day in study_days
             )
             
             # حساب نسبة الحضور للطالب
-            student_attendance_percent = (
-                (total_study_days - student_absence_points) / total_study_days * 100
-            ) if total_study_days > 0 else 0
+            student_attendance = total_study_days - student_absences
+            student_attendance_percent = (student_attendance / total_study_days) * 100 if total_study_days > 0 else 0
             
             student_stats.append({
                 'name': student.name,
-                'absences': student_absence_points,
+                'absences': student_absences,
                 'attendance_percent': student_attendance_percent
             })
         
+        # ترتيب الطلاب حسب نسبة الحضور (تنازلياً)
+        student_stats.sort(key=lambda x: x['attendance_percent'], reverse=True)
+        
         return render_template('statistics.html',
-                               total_students=total_students,
-                               total_study_days=total_study_days,
-                               total_possible_attendance=total_possible_attendance,
-                               total_absence_points=total_absence_points,
-                               actual_attendance=actual_attendance,
-                               attendance_percent=attendance_percent,
-                               absence_percent=absence_percent,
-                               student_stats=student_stats)
+                            month_name=calendar.month_name[current_month],
+                            year=current_year,
+                            total_students=total_students,
+                            total_study_days=total_study_days,
+                            total_possible_attendance=total_possible_attendance,
+                            total_absence_points=total_absence_points,
+                            actual_attendance=actual_attendance,
+                            attendance_percent=round(attendance_percent, 1),
+                            absence_percent=round(absence_percent, 1),
+                            student_stats=student_stats)
 
     @app.route('/monthly_view')
     def monthly_view():
