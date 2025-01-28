@@ -49,11 +49,6 @@ def create_app():
         def __repr__(self):
             return f'<Holiday {self.date}>'
 
-    # إنشاء الجداول عند التشغيل الأول
-    with app.app_context():
-        db.create_all()
-        add_initial_data()
-
     # إضافة بيانات أولية
     def add_initial_data():
         if not Student.query.first():
@@ -64,6 +59,11 @@ def create_app():
             ]
             db.session.add_all(default_students)
             db.session.commit()
+
+    # إنشاء الجداول عند التشغيل الأول
+    with app.app_context():
+        db.create_all()
+        add_initial_data()
 
     # تعريف الروابط
     @app.route('/')
@@ -222,10 +222,19 @@ def create_app():
         # حساب الإحصائيات
         total_students = Student.query.count()
         total_study_days = len(study_days)
-        total_possible_attendance = total_students * total_study_days * 2
+        total_possible_attendance = total_students * total_study_days  # كل يوم = نقطة واحدة
         
-        all_absences = Absence.query.filter(Absence.date.between(start_date, end_date)).all()
-        total_absence_points = sum(2 if ab.absence_type == 'full' else 1 for ab in all_absences if ab.date in study_days)
+        # حساب الغيابات في الفترة الدراسية فقط
+        all_absences = Absence.query.filter(
+            Absence.date.between(start_date, end_date)
+        ).all()
+        
+        # حساب نقاط الغياب (يوم كامل = نقطة، نصف يوم = 0.5 نقطة)
+        total_absence_points = sum(
+            1 if ab.absence_type == 'full' else 0.5 
+            for ab in all_absences 
+            if ab.date in study_days
+        )
         
         actual_attendance = total_possible_attendance - total_absence_points
         attendance_percent = (actual_attendance / total_possible_attendance * 100) if total_possible_attendance > 0 else 0
@@ -234,9 +243,24 @@ def create_app():
         # إحصائيات الطلاب
         student_stats = []
         for student in Student.query.all():
-            student_absences = Absence.query.filter_by(student_id=student.id).all()
-            student_absence_points = sum(2 if ab.absence_type == 'full' else 1 for ab in student_absences if ab.date in study_days)
-            student_attendance_percent = ((total_study_days * 2 - student_absence_points) / (total_study_days * 2) * 100) if total_study_days > 0 else 0
+            # حساب غيابات الطالب في الفترة الدراسية فقط
+            student_absences = Absence.query.filter(
+                Absence.student_id == student.id,
+                Absence.date.between(start_date, end_date)
+            ).all()
+            
+            # حساب نقاط الغياب للطالب
+            student_absence_points = sum(
+                1 if ab.absence_type == 'full' else 0.5 
+                for ab in student_absences 
+                if ab.date in study_days
+            )
+            
+            # حساب نسبة الحضور للطالب
+            student_attendance_percent = (
+                (total_study_days - student_absence_points) / total_study_days * 100
+            ) if total_study_days > 0 else 0
+            
             student_stats.append({
                 'name': student.name,
                 'absences': student_absence_points,
