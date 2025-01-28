@@ -1,97 +1,162 @@
 <!DOCTYPE html>
-<html dir="rtl" lang="ar">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="نظام إدارة الحضور للطلاب">
-    <meta http-equiv="Content-Language" content="ar">
-    <title>نظام إدارة الحضور</title>
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    
+    <!-- عنوان الصفحة الديناميكي -->
+    <title>{% block title %}نظام إدارة الحضور{% endblock %}</title>
+    
+    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
+    <!-- الأنماط المخصصة -->
     <style>
-        .nav-link.active {
-            border-bottom: 3px solid #0d6efd;
-            font-weight: bold;
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
         }
+        
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #f8f9fa;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .navbar {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .main-content {
+            flex: 1;
+            padding: 2rem 0;
+        }
+        
+        .card-header {
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            color: white;
+        }
+        
         .table-hover tbody tr:hover {
-            background-color: rgba(13, 110, 253, 0.05);
+            background-color: rgba(52, 152, 219, 0.05);
+        }
+        
+        .progress-bar {
+            transition: width 0.5s ease-in-out;
         }
     </style>
 </head>
-<body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow">
-        <div class="container">
-            <a class="navbar-brand" href="/">
-                <i class="bi bi-calendar-check"></i> نظام الحضور
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link {{ 'active' if request.path == '/' }}" href="/">
-                            <i class="bi bi-house-door"></i> الرئيسية
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ 'active' if request.path == '/monthly_view' }}" href="{{ url_for('monthly_view') }}">
-                            <i class="bi bi-calendar3"></i> جدول الشهر
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ 'active' if request.path == '/students' }}" href="{{ url_for('manage_students') }}">
-                            <i class="bi bi-people"></i> إدارة الطلاب
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ 'active' if request.path == '/holidays' }}" href="{{ url_for('manage_holidays') }}">
-                            <i class="bi bi-calendar-event"></i> العطل الرسمية
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ 'active' if request.path == '/statistics' }}" href="{{ url_for('statistics') }}">
-                            <i class="bi bi-graph-up"></i> الإحصائيات
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+<body>
 
-    <main class="container my-5">
+<!-- شريط التنقل -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+        <a class="navbar-brand" href="{{ url_for('index') }}">
+            <i class="bi bi-calendar-check me-2"></i>نظام الحضور
+        </a>
+        
+        <button class="navbar-toggler" type="button" 
+                data-bs-toggle="collapse" data-bs-target="#mainNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        <div class="collapse navbar-collapse" id="mainNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path == '/' }}" 
+                       href="{{ url_for('index') }}">
+                       <i class="bi bi-house-door"></i> الرئيسية
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path == '/monthly_view' }}" 
+                       href="{{ url_for('monthly_view') }}">
+                       <i class="bi bi-calendar3"></i> التقويم الشهري
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path == '/students' }}" 
+                       href="{{ url_for('manage_students') }}">
+                       <i class="bi bi-people"></i> إدارة الطلاب
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path == '/holidays' }}" 
+                       href="{{ url_for('manage_holidays') }}">
+                       <i class="bi bi-calendar-event"></i> العطل الرسمية
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if request.path == '/statistics' }}" 
+                       href="{{ url_for('statistics') }}">
+                       <i class="bi bi-graph-up"></i> الإحصائيات
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- المحتوى الرئيسي -->
+<main class="main-content">
+    <div class="container">
+        <!-- نظام التنبيهات -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show">
+                    <div class="alert alert-{{ category }} alert-dismissible fade show mt-3">
                         {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        <button type="button" class="btn-close" 
+                                data-bs-dismiss="alert"></button>
                     </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
         
+        <!-- كتلة المحتوى الديناميكي -->
         {% block content %}{% endblock %}
-    </main>
+    </div>
+</main>
 
-    <footer class="bg-dark text-white py-3 mt-5">
-        <div class="container text-center">
-            <p class="mb-0">تم التطوير بواسطة نظام الحضور الذكي 2024</p>
+<!-- التذييل -->
+<footer class="bg-dark text-white py-4 mt-auto">
+    <div class="container text-center">
+        <div class="d-flex flex-wrap justify-content-center gap-4">
+            <div>
+                <i class="bi bi-code-square"></i>
+                تم التطوير باستخدام Flask و Bootstrap
+            </div>
+            <div>
+                <i class="bi bi-clock-history"></i>
+                إصدار 2024.1.0
+            </div>
         </div>
-    </footer>
+        <p class="mt-3 mb-0">
+            جميع الحقوق محفوظة © 2024 نظام إدارة الحضور
+        </p>
+    </div>
+</footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
-    <script>
-        // تأكيد قبل الحذف
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('.confirm-delete').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    if (!confirm('هل أنت متأكد من هذا الإجراء؟')) {
-                        e.preventDefault();
-                    }
-                });
+<!-- الأكواد البرمجية المطلوبة -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // تأكيد الإجراءات الحساسة
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.confirm-action').forEach(element => {
+            element.addEventListener('click', (e) => {
+                if (!confirm('هل أنت متأكد من تنفيذ هذا الإجراء؟')) {
+                    e.preventDefault();
+                }
             });
         });
-    </script>
+    });
+</script>
+
 </body>
 </html>

@@ -1,28 +1,31 @@
 {% extends "base.html" %}
 
+{% block title %}إدارة الطلاب{% endblock %}
+
 {% block content %}
-<div class="container mt-5">
-    <h2 class="mb-4 text-center">إدارة الطلاب</h2>
-    
-    <!-- نموذج إضافة طالب جديد -->
-    <div class="card shadow mb-5">
-        <div class="card-header bg-primary text-white">
-            <h4 class="mb-0">إضافة طالب جديد</h4>
+<div class="container my-5">
+    <!-- بطاقة إضافة طالب جديد -->
+    <div class="card shadow-lg mb-5">
+        <div class="card-header bg-success text-white">
+            <h4 class="mb-0">
+                <i class="bi bi-person-plus"></i>
+                إضافة طالب جديد
+            </h4>
         </div>
         <div class="card-body">
             <form method="POST" action="{{ url_for('add_student') }}">
-                <div class="row g-3">
-                    <div class="col-md-8">
+                <div class="row g-3 align-items-center">
+                    <div class="col-md-9">
                         <input type="text" 
-                               class="form-control"
+                               class="form-control form-control-lg"
                                name="student_name"
-                               placeholder="اسم الطالب الجديد"
+                               placeholder="أدخل اسم الطالب الجديد"
                                required>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <button type="submit" 
-                                class="btn btn-success w-100">
-                            <i class="bi bi-person-plus"></i> إضافة
+                                class="btn btn-primary btn-lg w-100">
+                            <i class="bi bi-save"></i> حفظ
                         </button>
                     </div>
                 </div>
@@ -30,20 +33,23 @@
         </div>
     </div>
 
-    <!-- قائمة الطلاب -->
+    <!-- بطاقة قائمة الطلاب -->
     <div class="card shadow">
         <div class="card-header bg-info text-white">
-            <h4 class="mb-0">القائمة الحالية</h4>
+            <h4 class="mb-0">
+                <i class="bi bi-people-fill"></i>
+                قائمة الطلاب المسجلين
+            </h4>
         </div>
-        <div class="card-body">
+        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
+                <table class="table table-hover m-0">
+                    <thead class="table-light">
                         <tr>
-                            <th>#</th>
+                            <th width="50">#</th>
                             <th>اسم الطالب</th>
-                            <th>عدد الغيابات</th>
-                            <th>الإجراءات</th>
+                            <th width="200">عدد الغيابات</th>
+                            <th width="150">الإجراءات</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -51,17 +57,28 @@
                         <tr>
                             <td>{{ loop.index }}</td>
                             <td>{{ student.name }}</td>
-                            <td>{{ student.absences|length }}</td>
+                            <td>
+                                <span class="badge bg-danger rounded-pill">
+                                    {{ student.absences|length }}
+                                </span>
+                            </td>
                             <td>
                                 <form method="POST" 
                                       action="{{ url_for('delete_student', id=student.id) }}"
-                                      class="d-inline">
+                                      onsubmit="return confirm('هل أنت متأكد من حذف الطالب؟');">
                                     <button type="submit" 
-                                            class="btn btn-danger btn-sm"
-                                            onclick="return confirm('هل أنت متأكد من حذف الطالب؟')">
+                                            class="btn btn-danger btn-sm">
                                         <i class="bi bi-trash"></i> حذف
                                     </button>
                                 </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-4">
+                                <i class="bi bi-exclamation-circle fs-4"></i>
+                                <br>
+                                لا يوجد طلاب مسجلين حالياً
                             </td>
                         </tr>
                         {% endfor %}
@@ -69,12 +86,6 @@
                 </table>
             </div>
         </div>
-    </div>
-
-    <div class="mt-4 text-center">
-        <a href="{{ url_for('index') }}" class="btn btn-secondary">
-            <i class="bi bi-arrow-left"></i> العودة للرئيسية
-        </a>
     </div>
 </div>
 {% endblock %}

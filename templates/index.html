@@ -1,74 +1,80 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-md-12">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h3 class="mb-0">تسجيل الغياب اليومي</h3>
-                <a href="{{ url_for('monthly_view') }}" class="btn btn-light">
-                    <i class="bi bi-calendar3"></i> عرض جدول الشهر
-                </a>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="bi bi-plus-circle"></i> تسجيل غياب جديد</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('add_absence') }}">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <select class="form-select" name="student_id" required>
+                                    <option value="">اختر الطالب</option>
+                                    {% for student in students %}
+                                    <option value="{{ student.id }}">{{ student.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <input type="date" 
+                                       class="form-control" 
+                                       name="absence_date" 
+                                       value="{{ today.isoformat() }}">
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select" name="absence_type">
+                                    <option value="full">غياب كامل</option>
+                                    <option value="half">نصف يوم</option>
+                                </select>
+                            </div>
+                            <div class="col-md-1">
+                                <button type="submit" class="btn btn-success w-100">
+                                    <i class="bi bi-save"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>اسم الطالب</th>
-                                <th>التاريخ</th>
-                                <th class="text-center">تسجيل الغياب</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for student in students %}
-                            <tr>
-                                <td>{{ student.name }}</td>
-                                <td>
-                                    <form action="{{ url_for('add_absence') }}" method="post" class="d-flex gap-2 align-items-center absence-form">
-                                        <input type="hidden" name="student_id" value="{{ student.id }}">
-                                        <input type="date" name="absence_date" class="form-control" value="{{ today }}" style="max-width: 200px;" required>
-                                        <div class="form-check form-check-inline">
-                                            <input class="form-check-input" type="radio" name="absence_type" id="full_{{ student.id }}" value="full" checked>
-                                            <label class="form-check-label" for="full_{{ student.id }}">يوم كامل</label>
-                                        </div>
-                                        <div class="form-check form-check-inline">
-                                            <input class="form-check-input" type="radio" name="absence_type" id="half_{{ student.id }}" value="half">
-                                            <label class="form-check-label" for="half_{{ student.id }}">نصف يوم</label>
-                                        </div>
-                                        <button type="submit" class="btn btn-danger btn-sm">
-                                            <i class="bi bi-person-x"></i> تسجيل غياب
-                                        </button>
-                                    </form>
-                                </td>
-                                <td class="text-center">
-                                    <form action="{{ url_for('add_absence') }}" method="post" class="absence-form" style="display: inline;">
-                                        <input type="hidden" name="student_id" value="{{ student.id }}">
-                                        <input type="hidden" name="absence_type" value="full">
-                                        <button type="submit" class="btn btn-outline-danger btn-sm">
-                                            <i class="bi bi-person-x"></i> غياب اليوم
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h4 class="mb-0"><i class="bi bi-list-task"></i> سجل الغيابات اليومية</h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>الطالب</th>
+                                    <th>التاريخ</th>
+                                    <th>النوع</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for student in students %}
+                                    {% for absence in student.absences %}
+                                    <tr>
+                                        <td>{{ student.name }}</td>
+                                        <td>{{ absence.date.strftime('%Y-%m-%d') }}</td>
+                                        <td>
+                                            <span class="badge bg-{{ 'danger' if absence.absence_type == 'full' else 'warning' }}">
+                                                {{ 'كامل' if absence.absence_type == 'full' else 'نصف يوم' }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.absence-form').forEach(form => {
-        form.addEventListener('submit', function(e) {
-            if (!confirm('هل أنت متأكد من تسجيل الغياب؟')) {
-                e.preventDefault();
-            }
-        });
-    });
-});
-</script>
 {% endblock %}
