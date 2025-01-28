@@ -4,7 +4,10 @@
 <div class="container mt-5">
     <div class="card shadow">
         <div class="card-header bg-info text-white">
-            <h4 class="mb-0"><i class="bi bi-graph-up"></i> الإحصائيات العامة</h4>
+            <h4 class="mb-0">
+                <i class="bi bi-graph-up"></i> 
+                إحصائيات شهر {{ month_name }} {{ year }}
+            </h4>
         </div>
         <div class="card-body">
             <div class="row">
@@ -24,12 +27,20 @@
                             </div>
                             <ul class="list-group">
                                 <li class="list-group-item d-flex justify-content-between">
-                                    <span>أيام الدراسة:</span>
+                                    <span>أيام الدراسة في الشهر:</span>
                                     <span class="fw-bold">{{ total_study_days }}</span>
                                 </li>
                                 <li class="list-group-item d-flex justify-content-between">
+                                    <span>عدد الطلاب:</span>
+                                    <span class="fw-bold">{{ total_students }}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
                                     <span>إجمالي نقاط الحضور:</span>
-                                    <span class="fw-bold">{{ actual_attendance }}</span>
+                                    <span class="fw-bold">{{ actual_attendance|round(1) }}</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>إجمالي نقاط الغياب:</span>
+                                    <span class="fw-bold text-danger">{{ total_absence_points|round(1) }}</span>
                                 </li>
                             </ul>
                         </div>
@@ -55,14 +66,21 @@
                                             <td>{{ student.name }}</td>
                                             <td>
                                                 <div class="progress" style="height: 20px;">
-                                                    <div class="progress-bar" 
+                                                    <div class="progress-bar {% if student.attendance_percent >= 75 %}bg-success{% elif student.attendance_percent >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
                                                          style="width: {{ student.attendance_percent|round(1) }}%">
                                                         {{ student.attendance_percent|round(1) }}%
                                                     </div>
                                                 </div>
                                             </td>
                                             <td class="text-danger fw-bold">
-                                                {{ student.absences }}
+                                                {{ student.absences|round(1) }}
+                                            </td>
+                                        </tr>
+                                        {% else %}
+                                        <tr>
+                                            <td colspan="3" class="text-center text-muted py-3">
+                                                <i class="bi bi-info-circle"></i>
+                                                لا توجد بيانات حضور لهذا الشهر
                                             </td>
                                         </tr>
                                         {% endfor %}
