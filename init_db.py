@@ -1,8 +1,7 @@
-from app import create_app, db
+from app import app, db
 from models import Student, Absence, Holiday
 
 def init_database():
-    app = create_app()
     with app.app_context():
         # إنشاء جميع الجداول
         db.create_all()
