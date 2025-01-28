@@ -1,4 +1,3 @@
-
 {% extends "base.html" %}
 
 {% block content %}
@@ -44,21 +43,22 @@
                         </td>
                         {% endfor %}
                         <td class="text-center bg-light">
-                            {% set absence_count = namespace(full=0, half=0) %}
+                            {% set full = 0 %}
+                            {% set half = 0 %}
                             {% for day in days %}
                                 {% if (student.id, day) in absences and day not in holidays %}
                                     {% set absence = absences[(student.id, day)] %}
                                     {% if absence.absence_type == 'full' %}
-                                        {% set absence_count.full = absence_count.full + 1 %}
+                                        {% set full = full + 1 %}
                                     {% else %}
-                                        {% set absence_count.half = absence_count.half + 0.5 %}
+                                        {% set half = half + 0.5 %}
                                     {% endif %}
                                 {% endif %}
                             {% endfor %}
-                            <strong>{{ absence_count.full + absence_count.half }}</strong>
+                            <strong>{{ (full + half)|round(1) }}</strong>
                         </td>
                         <td class="text-center">
-                            {% if (absence_count.full + absence_count.half) >= 5 %}
+                            {% if (full + half) >= 5 %}
                                 <span class="badge bg-danger">إنذار</span>
                             {% endif %}
                         </td>
@@ -71,13 +71,13 @@
                         {% for day in days %}
                         <th class="text-center">
                             {% if day not in holidays %}
-                                {% set absent_count = namespace(value=0) %}
+                                {% set count = 0 %}
                                 {% for student in students %}
                                     {% if (student.id, day) in absences %}
-                                        {% set absent_count.value = absent_count.value + 1 %}
+                                        {% set count = count + 1 %}
                                     {% endif %}
                                 {% endfor %}
-                                {{ absent_count.value }}
+                                {{ count }}
                             {% endif %}
                         </th>
                         {% endfor %}
@@ -89,7 +89,7 @@
         <div class="mt-3">
             <div class="d-flex gap-3">
                 <div class="d-flex align-items-center">
-                    <div class="bg-warning px-3 py-1 me-2"></div>
+                    <div class="bg-warning px-3 py-1 me-2">&nbsp;</div>
                     <span>يوم عطلة</span>
                 </div>
                 <div class="d-flex align-items-center">
@@ -116,6 +116,9 @@
     .card-header {
         background-color: #f8f9fa !important;
         color: #000 !important;
+    }
+    .table-warning {
+        background-color: #fff3cd !important;
     }
 }
 </style>
