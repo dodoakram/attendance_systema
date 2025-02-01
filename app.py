@@ -4,13 +4,6 @@ from datetime import date, datetime, timedelta
 import calendar
 import os
 from models import db, Student, Absence, Holiday
-from sqlalchemy import text
-import pandas as pd
-from werkzeug.utils import secure_filename
-
-# تكوين مجلد التحميلات
-UPLOAD_FOLDER = 'uploads'
-ALLOWED_EXTENSIONS = {'xlsx', 'xls'}
 
 # إنشاء تطبيق Flask
 app = Flask(__name__)
@@ -18,12 +11,7 @@ app = Flask(__name__)
 # تكوين التطبيق
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///attendance.db').replace("postgres://", "postgresql://", 1)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-123')
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-# إنشاء مجلد التحميلات إذا لم يكن موجوداً
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-123')
 
 # تهيئة الإضافات مع التطبيق
 db.init_app(app)
@@ -47,29 +35,25 @@ with app.app_context():
         db.session.commit()
         print("تم إضافة الطلاب الافتراضيين بنجاح!")
     
-    # التحقق من وجود عمود absence_type وإضافته إذا لم يكن موجوداً
-    try:
-        with db.engine.connect() as conn:
-            conn.execute(text("SELECT absence_type FROM absences LIMIT 1"))
-    except:
-        with db.engine.connect() as conn:
-            conn.execute(text("ALTER TABLE absences ADD COLUMN absence_type VARCHAR(10) NOT NULL DEFAULT 'full'"))
-            db.session.commit()
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def is_valid_excel(file):
-    # Excel file signatures
-    xlsx_signature = b'PK\x03\x04'  # ZIP format (used by .xlsx)
-    xls_signature = b'\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1'  # Compound File Binary Format (used by .xls)
-    
-    # Read the first few bytes
-    file_start = file.read(8)
-    file.seek(0)  # Reset file pointer
-    
-    # Check if it matches any Excel signature
-    return file_start.startswith(xlsx_signature) or file_start.startswith(xls_signature)
+    # التحقق من وجود عمود absence_type
+    from sqlalchemy import text
+    with db.engine.connect() as conn:
+        result = conn.execute(text("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='absences' AND column_name='absence_type';
+        """))
+        
+        if not result.fetchone():
+            # إضافة العمود مع قيمة افتراضية 'full'
+            conn.execute(text("""
+                ALTER TABLE absences 
+                ADD COLUMN absence_type VARCHAR(10) NOT NULL DEFAULT 'full';
+            """))
+            conn.commit()
+            print("تم إضافة عمود absence_type بنجاح!")
+        else:
+            print("عمود absence_type موجود بالفعل.")
 
 # تعريف الروابط
 @app.route('/')
@@ -128,56 +112,44 @@ def add_absence():
 
     return redirect(url_for('index'))
 
-@app.route('/manage_students')
+@app.route('/students', methods=['GET'])
 def manage_students():
     students = Student.query.order_by(Student.name).all()
-    return render_template('manage_students.html', students=students)
+    return render_template('students.html', students=students)
 
 @app.route('/add_student', methods=['POST'])
 def add_student():
+    name = request.form.get('student_name', '').strip()
+    if not name:
+        flash('يرجى إدخال اسم الطالب', 'danger')
+        return redirect(url_for('manage_students'))
+
+    existing = Student.query.filter_by(name=name).first()
+    if existing:
+        flash('الطالب موجود مسبقاً', 'warning')
+        return redirect(url_for('manage_students'))
+
     try:
-        # الحصول على الاسم واللقب من النموذج
-        first_name = request.form.get('first_name', '').strip()
-        last_name = request.form.get('last_name', '').strip()
-        
-        # دمج اللقب والاسم (اللقب أولاً)
-        full_name = f"{last_name} {first_name}".strip()
-        
-        if not full_name:
-            flash('يجب إدخال الاسم واللقب', 'error')
-            return redirect(url_for('manage_students'))
-        
-        # التحقق من عدم وجود الطالب مسبقاً
-        if Student.query.filter_by(name=full_name).first():
-            flash('هذا الطالب موجود مسبقاً', 'error')
-            return redirect(url_for('manage_students'))
-        
-        # إضافة الطالب الجديد
-        student = Student(name=full_name)
+        student = Student(name=name)
         db.session.add(student)
         db.session.commit()
         flash('تم إضافة الطالب بنجاح', 'success')
-        
     except Exception as e:
         db.session.rollback()
-        flash('حدث خطأ أثناء إضافة الطالب', 'error')
-    
+        flash('حدث خطأ أثناء الإضافة', 'danger')
+
     return redirect(url_for('manage_students'))
 
-@app.route('/delete_student/<int:id>')
+@app.route('/delete_student/<int:id>', methods=['POST'])
 def delete_student(id):
+    student = Student.query.get_or_404(id)
     try:
-        student = Student.query.get_or_404(id)
-        # حذف جميع الغيابات المرتبطة بالطالب
-        Absence.query.filter_by(student_id=id).delete()
-        # حذف الطالب
         db.session.delete(student)
         db.session.commit()
-        flash('تم حذف الطالب بنجاح', 'success')
+        flash(f'تم حذف الطالب {student.name} بنجاح', 'success')
     except Exception as e:
         db.session.rollback()
-        flash('حدث خطأ أثناء حذف الطالب', 'error')
-    
+        flash('حدث خطأ أثناء الحذف', 'danger')
     return redirect(url_for('manage_students'))
 
 @app.route('/holidays', methods=['GET', 'POST'])
@@ -221,52 +193,52 @@ def delete_holiday(id):
     return redirect(url_for('manage_holidays'))
 
 @app.route('/statistics')
-@app.route('/statistics/<int:year>/<int:month>')
-def statistics(year=None, month=None):
+def statistics():
     today = date.today()
-    year = year or today.year
-    month = month or today.month
+    current_year = today.year
+    current_month = today.month
     
-    # حساب الشهر السابق والتالي
-    if month == 1:
-        prev_month = 12
-        prev_year = year - 1
-    else:
-        prev_month = month - 1
-        prev_year = year
-        
-    if month == 12:
-        next_month = 1
-        next_year = year + 1
-    else:
-        next_month = month + 1
-        next_year = year
+    # تحديد بداية ونهاية الشهر الحالي
+    _, last_day = calendar.monthrange(current_year, current_month)
+    month_start = date(current_year, current_month, 1)
+    month_end = date(current_year, current_month, last_day)
     
-    # تحديد بداية ونهاية الشهر
-    _, last_day = calendar.monthrange(year, month)
-    month_start = date(year, month, 1)
-    month_end = date(year, month, last_day)
-    
-    # الحصول على قائمة العطل للشهر
+    # الحصول على قائمة العطل للشهر الحالي
     month_holidays = Holiday.query.filter(
         Holiday.date.between(month_start, month_end)
     ).all()
     
+    # طباعة العطل للتحقق
+    print("Holidays this month:")
+    for holiday in month_holidays:
+        print(f"Holiday: {holiday.date}, Description: {holiday.description}")
+    
     holidays = set(h.date for h in month_holidays)
     
-    # حساب أيام الدراسة في الشهر
+    # حساب أيام الدراسة في الشهر الحالي
     study_days = []
     current_date = month_start
     
+    # نحسب حتى نهاية الشهر (وليس فقط حتى اليوم الحالي)
     while current_date <= month_end:
         weekday = current_date.weekday()
+        # 5 = السبت، 4 = الجمعة
         is_weekend = weekday in [4, 5]
         is_holiday = current_date in holidays
         
         if not is_weekend and not is_holiday:
             study_days.append(current_date)
         
+        # طباعة معلومات التصحيح
+        print(f"Date: {current_date.strftime('%Y-%m-%d')}, "
+              f"Day: {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][weekday]}, "
+              f"Is Weekend: {is_weekend}, Is Holiday: {is_holiday}")
+        
         current_date += timedelta(days=1)
+    
+    # طباعة مجموع الأيام
+    print(f"\nTotal study days found: {len(study_days)}")
+    print("Study days:", [day.strftime('%Y-%m-%d') for day in study_days])
     
     # إحصائيات عامة
     total_students = Student.query.count()
@@ -274,12 +246,8 @@ def statistics(year=None, month=None):
     
     if total_study_days == 0 or total_students == 0:
         return render_template('statistics.html',
-                            month_name=calendar.month_name[month],
-                            year=year,
-                            prev_month=prev_month,
-                            prev_year=prev_year,
-                            next_month=next_month,
-                            next_year=next_year,
+                            month_name=calendar.month_name[current_month],
+                            year=current_year,
                             total_students=0,
                             total_study_days=0,
                             total_possible_attendance=0,
@@ -292,7 +260,7 @@ def statistics(year=None, month=None):
     # حساب إجمالي نقاط الحضور الممكنة
     total_possible_attendance = total_students * total_study_days
     
-    # حساب الغيابات لجميع الطلاب في الشهر
+    # حساب الغيابات لجميع الطلاب في الشهر الحالي
     absences = Absence.query.filter(
         Absence.date.between(month_start, month_end)
     ).all()
@@ -300,7 +268,7 @@ def statistics(year=None, month=None):
     # تنظيم الغيابات في قاموس للوصول السريع
     absence_dict = {}
     for absence in absences:
-        if absence.date in study_days:
+        if absence.date in study_days:  # نتجاهل الغيابات في أيام العطل
             key = (absence.student_id, absence.date)
             absence_dict[key] = absence.absence_type
     
@@ -318,6 +286,7 @@ def statistics(year=None, month=None):
     # إحصائيات الطلاب
     student_stats = []
     for student in Student.query.order_by(Student.name).all():
+        # حساب نقاط الغياب للطالب
         student_absences = sum(
             1.0 if absence_dict.get((student.id, day)) == 'full' else
             0.5 if absence_dict.get((student.id, day)) == 'half' else
@@ -325,6 +294,7 @@ def statistics(year=None, month=None):
             for day in study_days
         )
         
+        # حساب نسبة الحضور للطالب
         student_attendance = total_study_days - student_absences
         student_attendance_percent = (student_attendance / total_study_days) * 100 if total_study_days > 0 else 0
         
@@ -334,15 +304,12 @@ def statistics(year=None, month=None):
             'attendance_percent': student_attendance_percent
         })
     
+    # ترتيب الطلاب حسب نسبة الحضور (تنازلياً)
     student_stats.sort(key=lambda x: x['attendance_percent'], reverse=True)
     
     return render_template('statistics.html',
-                        month_name=calendar.month_name[month],
-                        year=year,
-                        prev_month=prev_month,
-                        prev_year=prev_year,
-                        next_month=next_month,
-                        next_year=next_year,
+                        month_name=calendar.month_name[current_month],
+                        year=current_year,
                         total_students=total_students,
                         total_study_days=total_study_days,
                         total_possible_attendance=total_possible_attendance,
@@ -353,26 +320,10 @@ def statistics(year=None, month=None):
                         student_stats=student_stats)
 
 @app.route('/monthly_view')
-@app.route('/monthly_view/<int:year>/<int:month>')
-def monthly_view(year=None, month=None):
+def monthly_view():
     today = date.today()
-    year = year or today.year
-    month = month or today.month
-    
-    # حساب الشهر السابق والتالي
-    if month == 1:
-        prev_month = 12
-        prev_year = year - 1
-    else:
-        prev_month = month - 1
-        prev_year = year
-        
-    if month == 12:
-        next_month = 1
-        next_year = year + 1
-    else:
-        next_month = month + 1
-        next_year = year
+    year = today.year
+    month = today.month
     
     num_days = calendar.monthrange(year, month)[1]
     days = [date(year, month, day) for day in range(1, num_days + 1)]
@@ -406,12 +357,6 @@ def monthly_view(year=None, month=None):
         6: 'الأحد'
     }
     
-    # حساب إحصائيات الشهر
-    total_students = len(students)
-    total_study_days = len([d for d in days if d not in holiday_dates])
-    total_absences = sum(1.0 if v == 'full' else 0.5 for v in absence_dict.values())
-    attendance_rate = ((total_students * total_study_days) - total_absences) / (total_students * total_study_days) * 100 if total_students * total_study_days > 0 else 0
-    
     return render_template('monthly_view.html',
                            students=students,
                            days=days,
@@ -419,153 +364,7 @@ def monthly_view(year=None, month=None):
                            holidays=holiday_dates,
                            weekday_names=weekday_names,
                            month_name=calendar.month_name[month],
-                           year=year,
-                           prev_month=prev_month,
-                           prev_year=prev_year,
-                           next_month=next_month,
-                           next_year=next_year,
-                           total_study_days=total_study_days,
-                           total_absences=total_absences,
-                           attendance_rate=round(attendance_rate, 1))
-
-@app.route('/import_students', methods=['POST'])
-def import_students():
-    if 'excel_file' not in request.files:
-        flash('لم يتم تحديد ملف', 'error')
-        return redirect(url_for('manage_students'))
-    
-    file = request.files['excel_file']
-    if file.filename == '':
-        flash('لم يتم اختيار ملف', 'error')
-        return redirect(url_for('manage_students'))
-    
-    if not file.filename.endswith(('.xlsx', '.xls')):
-        flash('يجب أن يكون الملف بصيغة Excel (.xlsx أو .xls)', 'error')
-        return redirect(url_for('manage_students'))
-    
-    # التحقق من صحة ملف Excel
-    if not is_valid_excel(file):
-        flash('الملف ليس ملف Excel صالح. تأكد من أن الملف بتنسيق .xlsx أو .xls', 'error')
-        return redirect(url_for('manage_students'))
-    
-    try:
-        # حفظ الملف مؤقتاً
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
-        
-        try:
-            # محاولة قراءة الملف كـ Excel
-            if filename.endswith('.xlsx'):
-                df = pd.read_excel(filepath, engine='openpyxl')
-            else:  # .xls
-                df = pd.read_excel(filepath, engine='xlrd')
-            
-            # التحقق من وجود الأعمدة المطلوبة
-            required_columns = ['الاسم', 'اللقب']
-            if not all(col in df.columns for col in required_columns):
-                missing_cols = [col for col in required_columns if col not in df.columns]
-                flash(f'الأعمدة المطلوبة غير موجودة: {", ".join(missing_cols)}', 'error')
-                return redirect(url_for('manage_students'))
-            
-            # دمج اللقب والاسم وإضافة الطلاب
-            success_count = 0
-            error_rows = []
-            
-            for index, row in df.iterrows():
-                try:
-                    # التعامل مع القيم الفارغة
-                    first_name = str(row['الاسم']).strip() if pd.notna(row['الاسم']) else ''
-                    last_name = str(row['اللقب']).strip() if pd.notna(row['اللقب']) else ''
-                    
-                    # وضع اللقب أولاً ثم الاسم
-                    full_name = f"{last_name} {first_name}".strip()
-                    if full_name:  # تأكد من أن الاسم ليس فارغاً
-                        # التحقق من عدم وجود الطالب مسبقاً
-                        if not Student.query.filter_by(name=full_name).first():
-                            student = Student(name=full_name)
-                            db.session.add(student)
-                            success_count += 1
-                except Exception as row_error:
-                    error_rows.append(index + 2)  # +2 لأن Excel يبدأ من 1 والعنوان في الصف الأول
-            
-            if error_rows:
-                flash(f'تم تخطي الصفوف التالية بسبب أخطاء: {", ".join(map(str, error_rows))}', 'warning')
-            
-            if success_count > 0:
-                db.session.commit()
-                flash(f'تم استيراد {success_count} طالب بنجاح', 'success')
-            else:
-                flash('لم يتم استيراد أي طالب. تأكد من تنسيق الملف وعدم تكرار الأسماء.', 'warning')
-            
-        except pd.errors.EmptyDataError:
-            flash('الملف فارغ أو لا يحتوي على بيانات', 'error')
-        except Exception as e:
-            flash(f'حدث خطأ أثناء قراءة الملف: {str(e)}', 'error')
-        
-    except Exception as e:
-        flash(f'حدث خطأ أثناء معالجة الملف: {str(e)}', 'error')
-    
-    finally:
-        # تأكد من حذف الملف المؤقت
-        if 'filepath' in locals() and os.path.exists(filepath):
-            try:
-                os.remove(filepath)
-            except:
-                pass
-    
-    return redirect(url_for('manage_students'))
-
-@app.route('/edit_absence/<int:student_id>/<date>/<new_type>')
-def edit_absence(student_id, date, new_type):
-    try:
-        # تحويل التاريخ من النص إلى كائن تاريخ
-        absence_date = datetime.strptime(date, '%Y-%m-%d').date()
-        
-        # البحث عن الغياب
-        absence = Absence.query.filter_by(
-            student_id=student_id,
-            date=absence_date
-        ).first()
-        
-        if absence:
-            # تحديث نوع الغياب
-            absence.absence_type = new_type
-            db.session.commit()
-            flash('تم تعديل الغياب بنجاح', 'success')
-        else:
-            flash('لم يتم العثور على الغياب', 'error')
-            
-    except Exception as e:
-        flash(f'حدث خطأ: {str(e)}', 'error')
-        
-    # العودة إلى الصفحة الرئيسية
-    return redirect(url_for('index'))
-
-@app.route('/delete_absence/<int:student_id>/<date>')
-def delete_absence(student_id, date):
-    try:
-        # تحويل التاريخ من النص إلى كائن تاريخ
-        absence_date = datetime.strptime(date, '%Y-%m-%d').date()
-        
-        # البحث عن الغياب وحذفه
-        absence = Absence.query.filter_by(
-            student_id=student_id,
-            date=absence_date
-        ).first()
-        
-        if absence:
-            db.session.delete(absence)
-            db.session.commit()
-            flash('تم حذف الغياب بنجاح', 'success')
-        else:
-            flash('لم يتم العثور على الغياب', 'error')
-            
-    except Exception as e:
-        flash(f'حدث خطأ: {str(e)}', 'error')
-        
-    # العودة إلى الصفحة الرئيسية
-    return redirect(url_for('index'))
+                           year=year)
 
 if __name__ == '__main__':
     app.run(debug=True)
